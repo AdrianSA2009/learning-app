@@ -89,6 +89,10 @@ function saveFilter(userId, filterData) {
 let mainWindow;
 let currentSession = null;
 
+if (process.platform === 'win32') {
+  app.setAppUserModelId('com.lany.learningapp'); 
+}
+
 function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1200,
@@ -96,6 +100,7 @@ function createWindow() {
     minWidth: 900,
     minHeight: 600,
     backgroundColor: '#181825',
+    icon: path.join(__dirname, '../public/lear.ico'),
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       nodeIntegration: false,

@@ -137,15 +137,15 @@ export default function CourseFilterSettings({ onClose }) {
           transition: all 0.2s ease;
         }
         .course-row-hover:hover {
-          background-color: #313244 !important;
-          border-color: #45475a !important;
+          background-color: var(--card-hover-bg) !important;
+          border-color: var(--border-color) !important;
         }
         .btn-close-hover:hover {
-          background-color: #313244 !important;
+          background-color: var(--card-hover-bg) !important;
           color: #f38ba8 !important;
         }
         .input-focus:focus {
-          border-color: #89b4fa !important;
+          border-color: #5865F2 !important;
         }
         .btn-hover:hover {
           opacity: 0.95 !important;
@@ -191,7 +191,7 @@ export default function CourseFilterSettings({ onClose }) {
         {/* Course List */}
         <div style={styles.list}>
           {filtered.length === 0 && (
-            <p style={{ color: "#6c7086", textAlign: "center", padding: "16px 0" }}>
+            <p style={{ color: "var(--text-muted)", textAlign: "center", padding: "16px 0" }}>
               Tidak ada kelas yang cocok
             </p>
           )}
@@ -215,7 +215,7 @@ export default function CourseFilterSettings({ onClose }) {
                   )}
                 </div>
                 <div style={styles.courseDetails}>
-                  <span style={{ color: "#6c7086", fontSize: "14px" }}>v</span>
+                  <span style={{ color: "var(--text-muted)", fontSize: "14px" }}>v</span>
                 </div>
               </div>
             );
@@ -224,19 +224,19 @@ export default function CourseFilterSettings({ onClose }) {
 
         {/* Active Filters Summary */}
         <div style={styles.activeSummary}>
-          <strong style={{ fontSize: "13px", color: "#cdd6f4" }}>Filter aktif saat ini:</strong>
+          <strong style={{ fontSize: "13px", color: "var(--text-color)" }}>Filter aktif saat ini:</strong>
           {activeFilters.length === 0 ? (
-            <p style={{ color: "#6c7086", fontSize: "13px", margin: "4px 0 0" }}>
+            <p style={{ color: "var(--text-muted)", fontSize: "13px", margin: "4px 0 0" }}>
               Tidak ada filter aktif (semua tugas ditampilkan)
             </p>
           ) : (
-            <ul style={styles.activeList}>
+            <div style={styles.activeList}>
               {activeFilters.map((af) => (
-                <li key={af.id} style={styles.activeListItem}>
-                  • {af.shortname || af.name.split("/").pop()}
-                </li>
+                <span key={af.id} style={styles.activeListItemBadge} title={af.name}>
+                  {af.shortname || af.name.split("/").pop()}
+                </span>
               ))}
-            </ul>
+            </div>
           )}
         </div>
 
@@ -343,8 +343,8 @@ const styles = {
     animation: "fadeIn 0.15s ease-out",
   },
   modal: {
-    background: "#1e1e2e",
-    border: "1px solid #313244",
+    background: "var(--card-bg-color)",
+    border: "1px solid var(--border-color)",
     borderRadius: "16px",
     width: "480px",
     maxWidth: "90vw",
@@ -356,8 +356,8 @@ const styles = {
     animation: "scaleIn 0.2s ease-out",
   },
   subModal: {
-    background: "#1e1e2e",
-    border: "1px solid #313244",
+    background: "var(--sub-modal-bg)",
+    border: "1px solid var(--border-color)",
     borderRadius: "16px",
     width: "440px",
     maxWidth: "90vw",
@@ -373,20 +373,20 @@ const styles = {
     justifyContent: "space-between",
     alignItems: "flex-start",
     padding: "20px 20px 10px",
-    borderBottom: "1px solid #313244",
+    borderBottom: "1px solid var(--border-color)",
   },
   subHeader: {
     display: "flex",
     justifyContent: "space-between",
     alignItems: "center",
-    borderBottom: "1px solid #313244",
+    borderBottom: "1px solid var(--border-color)",
     paddingBottom: "12px",
   },
   title: {
     margin: 0,
     fontSize: "18px",
     fontWeight: 600,
-    color: "#cdd6f4",
+    color: "var(--text-color)",
     display: "flex",
     alignItems: "center",
     gap: "8px",
@@ -395,17 +395,17 @@ const styles = {
     margin: 0,
     fontSize: "18px",
     fontWeight: 600,
-    color: "#cdd6f4",
+    color: "var(--text-color)",
   },
   subtitle: {
     margin: "4px 0 0",
     fontSize: "13px",
-    color: "#a6adc8",
+    color: "var(--text-muted)",
   },
   btnClose: {
     background: "none",
     border: "none",
-    color: "#6c7086",
+    color: "var(--text-muted)",
     fontSize: "18px",
     cursor: "pointer",
     padding: "4px",
@@ -426,10 +426,10 @@ const styles = {
   searchInput: {
     margin: "8px 16px 10px",
     padding: "10px 14px",
-    background: "#181825",
-    border: "1px solid #313244",
+    background: "var(--bg-input)",
+    border: "1px solid var(--border-color)",
     borderRadius: "8px",
-    color: "#cdd6f4",
+    color: "var(--text-color)",
     fontSize: "14px",
     outline: "none",
     width: "calc(100% - 32px)",
@@ -451,8 +451,8 @@ const styles = {
     justifyContent: "space-between",
     padding: "12px",
     borderRadius: "8px",
-    background: "#181825",
-    border: "1px solid #313244",
+    background: "var(--bg-input)",
+    border: "1px solid var(--border-color)",
     cursor: "pointer",
     userSelect: "none",
   },
@@ -465,7 +465,7 @@ const styles = {
     paddingRight: "8px",
   },
   courseName: {
-    color: "#cdd6f4",
+    color: "var(--text-color)",
     fontSize: "14px",
     fontWeight: 500,
     lineHeight: "1.4",
@@ -491,8 +491,8 @@ const styles = {
   activeSummary: {
     margin: "12px 16px 10px",
     padding: "12px",
-    background: "#181825",
-    border: "1px solid #313244",
+    background: "var(--bg-color)",
+    border: "1px solid var(--border-color)",
     borderRadius: "8px",
     display: "flex",
     flexDirection: "column",
@@ -500,21 +500,29 @@ const styles = {
   },
   activeList: {
     margin: 0,
-    paddingLeft: "0",
-    listStyleType: "none",
+    padding: 0,
     display: "flex",
-    flexDirection: "column",
-    gap: "4px",
+    flexWrap: "wrap",
+    gap: "6px",
+    maxHeight: "80px",
+    overflowY: "auto",
   },
-  activeListItem: {
-    fontSize: "13px",
-    color: "#a6adc8",
-    wordBreak: "break-all",
+  activeListItemBadge: {
+    fontSize: "11px",
+    color: "var(--text-muted)",
+    background: "var(--card-hover-bg)",
+    border: "1px solid var(--border-color)",
+    borderRadius: "6px",
+    padding: "3px 8px",
+    maxWidth: "150px",
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
   },
   bottomNote: {
     margin: "0 16px 14px",
     fontSize: "11px",
-    color: "#6c7086",
+    color: "var(--text-muted)",
     textAlign: "center",
   },
   footer: {
@@ -522,14 +530,14 @@ const styles = {
     justifyContent: "flex-end",
     gap: "10px",
     padding: "14px 20px",
-    borderTop: "1px solid #313244",
+    borderTop: "1px solid var(--border-color)",
   },
   btnSecondary: {
     padding: "9px 18px",
     background: "transparent",
-    border: "1px solid #313244",
+    border: "1px solid var(--border-color)",
     borderRadius: "8px",
-    color: "#cdd6f4",
+    color: "var(--text-color)",
     fontSize: "14px",
     cursor: "pointer",
   },
@@ -538,7 +546,7 @@ const styles = {
     background: "#89b4fa",
     border: "none",
     borderRadius: "8px",
-    color: "#1e1e2e",
+    color: "var(--bg-color)",
     fontSize: "14px",
     fontWeight: 600,
     cursor: "pointer",
@@ -559,26 +567,26 @@ const styles = {
   label: {
     fontSize: "13px",
     fontWeight: 600,
-    color: "#cdd6f4",
+    color: "var(--text-color)",
     display: "flex",
     alignItems: "center",
   },
   readonlyInput: {
     padding: "10px 12px",
-    background: "#151521",
-    border: "1px solid #313244",
+    background: "var(--bg-color)",
+    border: "1px solid var(--border-color)",
     borderRadius: "8px",
-    color: "#7f849c",
+    color: "var(--text-muted)",
     fontSize: "14px",
     outline: "none",
     cursor: "not-allowed",
   },
   textInput: {
     padding: "10px 12px",
-    background: "#181825",
-    border: "1px solid #313244",
+    background: "var(--bg-input)",
+    border: "1px solid var(--border-color)",
     borderRadius: "8px",
-    color: "#cdd6f4",
+    color: "var(--text-color)",
     fontSize: "14px",
     outline: "none",
     transition: "border-color 0.2s",
@@ -599,4 +607,4 @@ const styles = {
     fontWeight: 600,
     cursor: "pointer",
   },
-};
+};

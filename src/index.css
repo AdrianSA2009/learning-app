@@ -2,12 +2,37 @@
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  /* Default: Dark Mode (Catppuccin Mocha colors) */
+  --bg-color: #181825;
+  --card-bg-color: #1e1e2e;
+  --border-color: #313244;
+  --text-color: #cdd6f4;
+  --text-muted: #a6adc8;
+  --bg-input: #11111b;
+  --card-hover-bg: #313244;
+  --sub-modal-bg: #1e1e2e;
+}
+
+/* Light Mode overrides */
+html.light {
+  --bg-color: #f1f5f9;         /* slate-100 */
+  --card-bg-color: #ffffff;       /* white */
+  --border-color: #cbd5e1;     /* slate-300 */
+  --text-color: #0f172a;       /* slate-900 */
+  --text-muted: #64748b;       /* slate-500 */
+  --bg-input: #f8fafc;         /* slate-50 */
+  --card-hover-bg: #e2e8f0;    /* slate-200 */
+  --sub-modal-bg: #f8fafc;
+}
+
 body {
   margin: 0;
   font-family: 'Inter', sans-serif;
-  background-color: #181825; /* Warna dasar gelap */
-  color: #cdd6f4;
+  background-color: var(--bg-color);
+  color: var(--text-color);
   overflow: hidden; /* Mencegah scroll di body utama */
+  transition: background-color 0.3s ease, color 0.3s ease;
 }
 
 /* Custom Scrollbar */
@@ -15,9 +40,111 @@ body {
   width: 8px;
 }
 ::-webkit-scrollbar-track {
-  background: #1e1e2e; 
+  background: var(--bg-color); 
 }
 ::-webkit-scrollbar-thumb {
-  background: #45475a; 
+  background: var(--border-color); 
   border-radius: 4px;
+}
+
+/* Overrides for Light Mode */
+html.light .bg-\[\#181825\] {
+  background-color: var(--bg-color) !important;
+}
+html.light .bg-\[\#1e1e2e\] {
+  background-color: var(--card-bg-color) !important;
+}
+html.light .border-\[\#313244\] {
+  border-color: var(--border-color) !important;
+}
+html.light .bg-\[\#11111b\] {
+  background-color: var(--bg-input) !important;
+}
+html.light .text-white {
+  color: var(--text-color) !important;
+}
+html.light .text-gray-400 {
+  color: var(--text-muted) !important;
+}
+html.light .text-gray-500 {
+  color: var(--text-muted) !important;
+}
+html.light .hover\:bg-\[\#313244\]:hover {
+  background-color: var(--card-hover-bg) !important;
+}
+html.light .hover\:text-white:hover {
+  color: var(--text-color) !important;
+}
+html.light .hover\:border-primary\/50:hover {
+  border-color: #5865F2 !important;
+}
+html.light .bg-green-500\/5 {
+  background-color: rgba(34, 197, 94, 0.05) !important;
+}
+html.light .bg-yellow-500\/5 {
+  background-color: rgba(234, 179, 8, 0.05) !important;
+}
+html.light .bg-red-500\/5 {
+  background-color: rgba(239, 68, 68, 0.05) !important;
+}
+html.light .bg-blue-500\/5 {
+  background-color: rgba(59, 130, 246, 0.05) !important;
+}
+html.light .bg-green-500\/10 {
+  background-color: rgba(34, 197, 94, 0.1) !important;
+}
+html.light .bg-yellow-500\/10 {
+  background-color: rgba(234, 179, 8, 0.1) !important;
+}
+html.light .bg-red-500\/10 {
+  background-color: rgba(239, 68, 68, 0.1) !important;
+}
+html.light .bg-blue-500\/20 {
+  background-color: rgba(59, 130, 246, 0.1) !important;
+}
+html.light .border-green-500\/10 {
+  border-color: rgba(34, 197, 94, 0.2) !important;
+}
+html.light .border-yellow-500\/10 {
+  border-color: rgba(234, 179, 8, 0.2) !important;
+}
+html.light .border-red-500\/20 {
+  border-color: rgba(239, 68, 68, 0.2) !important;
+}
+html.light .border-green-500\/20 {
+  border-color: rgba(34, 197, 94, 0.2) !important;
+}
+html.light .border-yellow-500\/20 {
+  border-color: rgba(234, 179, 8, 0.2) !important;
+}
+html.light .border-blue-500\/20 {
+  border-color: rgba(59, 130, 246, 0.2) !important;
+}
+html.light .text-green-400 {
+  color: #16a34a !important; /* green-600 */
+}
+html.light .text-yellow-400 {
+  color: #ca8a04 !important; /* yellow-600 */
+}
+html.light .text-red-400 {
+  color: #dc2626 !important; /* red-600 */
+}
+html.light .text-blue-400 {
+  color: #2563eb !important; /* blue-600 */
+}
+html.light .bg-primary\/20 {
+  background-color: rgba(88, 101, 242, 0.15) !important;
+}
+html.light .hover\:bg-primary\/30:hover {
+  background-color: rgba(88, 101, 242, 0.25) !important;
+}
+html.light .bg-\[\#181825\]\.border {
+  background-color: var(--card-bg-color) !important;
+  border-color: var(--border-color) !important;
+}
+html.light ::-webkit-scrollbar-track {
+  background: var(--bg-color); 
+}
+html.light ::-webkit-scrollbar-thumb {
+  background: var(--border-color); 
 }

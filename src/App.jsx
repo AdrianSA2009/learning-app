@@ -1,11 +1,33 @@
 import { useState, useEffect } from 'react';
-import { LayoutDashboard, BookOpen, LogOut, Bell, CheckCircle2, Clock, AlertTriangle, Loader2, Upload, X, Send, Filter, ArrowLeft, FileText, ChevronRight } from 'lucide-react';
+import { LayoutDashboard, BookOpen, LogOut, Bell, CheckCircle2, Clock, AlertTriangle, Loader2, Upload, X, Send, Filter, ArrowLeft, FileText, ChevronRight, CheckSquare, Plus, Trash2, Calendar, AlertCircle, Check, Sun, Moon, Menu } from 'lucide-react';
 import CourseFilterSettings from './CourseFilterSettings';
 
 function App() {
+  const [isDarkMode, setIsDarkMode] = useState(() => {
+    try {
+      const saved = localStorage.getItem('theme');
+      return saved ? saved === 'dark' : true; // default dark
+    } catch (e) {
+      return true;
+    }
+  });
+
+  useEffect(() => {
+    if (isDarkMode) {
+      document.documentElement.classList.add('dark');
+      document.documentElement.classList.remove('light');
+      localStorage.setItem('theme', 'dark');
+    } else {
+      document.documentElement.classList.add('light');
+      document.documentElement.classList.remove('dark');
+      localStorage.setItem('theme', 'light');
+    }
+  }, [isDarkMode]);
+
   const [session, setSession] = useState(null);
   const [statusData, setStatusData] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [loginForm, setLoginForm] = useState({ username: '', password: '' });
   const [loginError, setLoginError] = useState('');
   const [submitModal, setSubmitModal] = useState(null); // { id, name }
@@ -21,6 +43,150 @@ function App() {
   const [editing, setEditing] = useState(false);
   const [editError, setEditError] = useState('');
   const [editSuccess, setEditSuccess] = useState('');
+
+  // States untuk Todo List
+  const [todos, setTodos] = useState(() => {
+    try {
+      const saved = localStorage.getItem('todos');
+      return saved ? JSON.parse(saved) : [];
+    } catch (e) {
+      return [];
+    }
+  });
+  const [newTodoTitle, setNewTodoTitle] = useState('');
+  const [newTodoDesc, setNewTodoDesc] = useState('');
+  const [newTodoDueDate, setNewTodoDueDate] = useState('');
+  const [newTodoCourse, setNewTodoCourse] = useState('');
+  const [todoFilter, setTodoFilter] = useState('all');
+  const [todoSearch, setTodoSearch] = useState('');
+
+  useEffect(() => {
+    localStorage.setItem('todos', JSON.stringify(todos));
+  }, [todos]);
+
+  // Request Notification permission
+  useEffect(() => {
+    if (typeof Notification !== 'undefined' && Notification.permission === 'default') {
+      Notification.requestPermission();
+    }
+  }, []);
+
+  // Notification engine untuk deadline 24j, 12j, 6j (hanya untuk tugas Moodle)
+  useEffect(() => {
+    const checkDeadlines = () => {
+      const nowSec = Math.floor(Date.now() / 1000);
+      let sent = {};
+      try {
+        sent = JSON.parse(localStorage.getItem('sent_deadline_notifications') || '{}');
+      } catch (e) {
+        sent = {};
+      }
+      let updated = false;
+
+      // Pengecekan Tugas Moodle
+      if (statusData?.allTasks) {
+        statusData.allTasks.forEach(task => {
+          if (task.isSubmitted || !task.duedate) return;
+          const diffSec = task.duedate - nowSec;
+          const hoursLeft = diffSec / 3600;
+          const taskId = `moodle_${task.id}`;
+
+          if (!sent[taskId]) {
+            sent[taskId] = { '24h': false, '12h': false, '6h': false };
+          }
+
+          if (hoursLeft > 0) {
+            let triggeredLevel = null;
+            if (hoursLeft <= 24 && hoursLeft > 12 && !sent[taskId]['24h']) {
+              triggeredLevel = '24j';
+              sent[taskId]['24h'] = true;
+            } else if (hoursLeft <= 12 && hoursLeft > 6 && !sent[taskId]['12h']) {
+              triggeredLevel = '12j';
+              sent[taskId]['12h'] = true;
+              sent[taskId]['24h'] = true;
+            } else if (hoursLeft <= 6 && hoursLeft > 0 && !sent[taskId]['6h']) {
+              triggeredLevel = '6j';
+              sent[taskId]['6h'] = true;
+              sent[taskId]['12h'] = true;
+              sent[taskId]['24h'] = true;
+            }
+
+            if (triggeredLevel) {
+              updated = true;
+              showDesktopNotification(
+                `⏰ Tugas Moodle Mendekati Deadline (${triggeredLevel})`,
+                `Tugas "${task.name}" (${task.course}) akan berakhir dalam kurang dari ${triggeredLevel}.`
+              );
+            }
+          }
+        });
+      }
+
+      if (updated) {
+        localStorage.setItem('sent_deadline_notifications', JSON.stringify(sent));
+      }
+    };
+
+    const showDesktopNotification = (title, body) => {
+      if (typeof Notification !== 'undefined') {
+        if (Notification.permission === 'granted') {
+          new Notification(title, { body });
+        }
+      }
+    };
+
+    // Jalankan setiap 30 detik
+    checkDeadlines();
+    const interval = setInterval(checkDeadlines, 30000);
+    return () => clearInterval(interval);
+  }, [statusData]);
+
+  const handleAddTodo = (e) => {
+    e.preventDefault();
+    if (!newTodoTitle.trim()) return;
+
+    const newTodo = {
+      id: Date.now().toString(),
+      title: newTodoTitle.trim(),
+      desc: newTodoDesc.trim(),
+      dueDate: newTodoDueDate,
+      course: newTodoCourse.trim(),
+      isCompleted: false,
+      createdAt: new Date().toISOString()
+    };
+
+    setTodos(prev => [newTodo, ...prev]);
+    setNewTodoTitle('');
+    setNewTodoDesc('');
+    setNewTodoDueDate('');
+    setNewTodoCourse('');
+  };
+
+  const handleToggleTodo = (id) => {
+    setTodos(prev => prev.map(todo => {
+      if (todo.id === id) {
+        const nextStatus = !todo.isCompleted;
+        if (nextStatus) {
+          try {
+            const sent = JSON.parse(localStorage.getItem('sent_deadline_notifications') || '{}');
+            delete sent[`todo_${id}`];
+            localStorage.setItem('sent_deadline_notifications', JSON.stringify(sent));
+          } catch(e) {}
+        }
+        return { ...todo, isCompleted: nextStatus };
+      }
+      return todo;
+    }));
+  };
+
+  const handleDeleteTodo = (id) => {
+    setTodos(prev => prev.filter(todo => todo.id !== id));
+    try {
+      const sent = JSON.parse(localStorage.getItem('sent_deadline_notifications') || '{}');
+      delete sent[`todo_${id}`];
+      localStorage.setItem('sent_deadline_notifications', JSON.stringify(sent));
+    } catch(e) {}
+  };
 
   const [activeTab, setActiveTab] = useState('dashboard'); // 'dashboard' | 'courses' | 'course-detail'
   const [coursesList, setCoursesList] = useState([]);
@@ -360,18 +526,36 @@ function App() {
   }
 
   return (
-    <div className="flex h-screen bg-[#181825]">
-      <aside className="w-64 bg-[#1e1e2e] border-r border-[#313244] flex flex-col">
-        <div className="p-6 flex items-center gap-3">
-          <div className="w-10 h-10 bg-primary rounded-lg flex items-center justify-center">
-            <BookOpen className="text-white" size={20} />
+    <div className="flex h-screen bg-[#181825] overflow-hidden">
+      {/* Sidebar Overlay for Mobile */}
+      {isSidebarOpen && (
+        <div 
+          onClick={() => setIsSidebarOpen(false)} 
+          className="fixed inset-0 bg-black/60 z-30 md:hidden"
+        />
+      )}
+
+      <aside className={`fixed inset-y-0 left-0 z-40 w-64 bg-[#1e1e2e] border-r border-[#313244] flex flex-col transition-transform duration-300 ease-in-out md:translate-x-0 md:static ${
+        isSidebarOpen ? 'translate-x-0' : '-translate-x-full'
+      }`}>
+        <div className="p-6 flex items-center justify-between md:justify-start gap-3">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-primary rounded-lg flex items-center justify-center">
+              <BookOpen className="text-white" size={20} />
+            </div>
+            <h1 className="text-xl font-bold text-white">Lany Desktop</h1>
           </div>
-          <h1 className="text-xl font-bold text-white">Lany Desktop</h1>
+          <button 
+            onClick={() => setIsSidebarOpen(false)}
+            className="p-1 text-[var(--text-muted)] hover:text-[var(--text-color)] md:hidden hover:bg-[var(--card-hover-bg)] rounded-lg"
+          >
+            <X size={20} />
+          </button>
         </div>
 
         <nav className="flex-1 px-4 space-y-2">
           <button
-            onClick={() => { setActiveTab('dashboard'); fetchStatus(); }}
+            onClick={() => { setActiveTab('dashboard'); fetchStatus(); setIsSidebarOpen(false); }}
             className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all ${
               activeTab === 'dashboard' ? 'bg-primary text-white font-bold' : 'text-gray-400 hover:text-white hover:bg-[#313244]'
             }`}
@@ -380,7 +564,7 @@ function App() {
           </button>
           
           <button
-            onClick={() => { setActiveTab('courses'); loadAllCourses(); }}
+            onClick={() => { setActiveTab('courses'); loadAllCourses(); setIsSidebarOpen(false); }}
             className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all ${
               activeTab === 'courses' || activeTab === 'course-detail' ? 'bg-primary text-white font-bold' : 'text-gray-400 hover:text-white hover:bg-[#313244]'
             }`}
@@ -389,21 +573,38 @@ function App() {
           </button>
 
           <button
-            onClick={() => setShowFilter(true)}
+            onClick={() => { setActiveTab('todo'); setIsSidebarOpen(false); }}
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all ${
+              activeTab === 'todo' ? 'bg-primary text-white font-bold' : 'text-gray-400 hover:text-white hover:bg-[#313244]'
+            }`}
+          >
+            <CheckSquare size={20} /> Todo List
+          </button>
+
+          <button
+            onClick={() => { setShowFilter(true); setIsSidebarOpen(false); }}
             className="w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all text-gray-400 hover:text-white hover:bg-[#313244]"
           >
             <Filter size={20} /> Filter Kelas
           </button>
         </nav>
 
-        <div className="p-4 border-t border-[#313244]">
+        <div className="p-4 border-t border-[var(--border-color)]">
+          <button
+            onClick={() => setIsDarkMode(!isDarkMode)}
+            className="w-full flex items-center gap-3 px-3 py-2 text-sm text-[var(--text-muted)] hover:text-[var(--text-color)] hover:bg-[var(--card-hover-bg)] rounded-lg transition mb-4"
+          >
+            {isDarkMode ? <Sun size={18} /> : <Moon size={18} />}
+            <span>{isDarkMode ? 'Mode Terang' : 'Mode Gelap'}</span>
+          </button>
+
           <div className="flex items-center gap-3 mb-4 px-2">
             <div className="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center text-xs font-bold text-white">
               {session?.fullname?.charAt(0) || 'U'}
             </div>
             <div className="overflow-hidden">
-              <p className="text-sm font-medium text-white truncate">{session?.fullname || 'User'}</p>
-              <p className="text-xs text-gray-500 truncate">Online</p>
+              <p className="text-sm font-medium text-[var(--text-color)] truncate">{session?.fullname || 'User'}</p>
+              <p className="text-xs text-[var(--text-muted)] truncate">Online</p>
             </div>
           </div>
           <button
@@ -415,21 +616,34 @@ function App() {
         </div>
       </aside>
 
-      <main className="flex-1 overflow-y-auto p-8">
+      <main className="flex-1 overflow-y-auto p-4 md:p-8">
+        {/* Mobile Header / Top Bar */}
+        <div className="flex items-center justify-between md:hidden mb-6 bg-[#1e1e2e] p-3 rounded-xl border border-[#313244]">
+          <div className="flex items-center gap-2">
+            <BookOpen className="text-primary" size={24} />
+            <h1 className="text-lg font-bold text-white">Lany Desktop</h1>
+          </div>
+          <button 
+            onClick={() => setIsSidebarOpen(true)}
+            className="p-2 text-gray-400 hover:text-white rounded-lg hover:bg-[#313244]"
+          >
+            <Menu size={24} />
+          </button>
+        </div>
         {activeTab === 'dashboard' && (
-          <header className="flex justify-between items-center mb-8">
+          <header className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-8">
             <div>
               <h2 className="text-2xl font-bold text-white">Dashboard Tugas</h2>
               <p className="text-gray-400">Tugas dengan deadline 10 hari ke depan</p>
             </div>
-            <div className="flex items-center gap-4">
+            <div className="flex flex-wrap items-center gap-4 w-full sm:w-auto">
               {statusData && dashboardCourses.length > 0 && (
-                <div className="flex items-center gap-2">
-                  <span className="text-gray-400 text-sm font-medium">Filter Matkul:</span>
+                <div className="flex items-center gap-2 w-full sm:w-auto">
+                  <span className="text-gray-400 text-sm font-medium shrink-0">Filter Matkul:</span>
                   <select
                     value={dashboardCourseFilter}
                     onChange={(e) => setDashboardCourseFilter(e.target.value)}
-                    className="bg-[#1e1e2e] border border-[#313244] text-white rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-primary transition cursor-pointer"
+                    className="bg-[#1e1e2e] border border-[#313244] text-white rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-primary transition cursor-pointer w-full sm:w-auto"
                   >
                     <option value="all">Semua Mata Kuliah</option>
                     {dashboardCourses.map((course, idx) => (
@@ -438,7 +652,7 @@ function App() {
                   </select>
                 </div>
               )}
-              <button onClick={fetchStatus} className="p-2 bg-[#1e1e2e] rounded-lg hover:bg-[#313244] text-gray-400 hover:text-white transition">
+              <button onClick={fetchStatus} className="p-2 bg-[#1e1e2e] rounded-lg hover:bg-[#313244] text-gray-400 hover:text-white transition hidden sm:inline-block">
                 <Bell size={20} />
               </button>
             </div>
@@ -449,6 +663,13 @@ function App() {
           <header className="mb-8">
             <h2 className="text-2xl font-bold text-white">Mata Kuliah Anda</h2>
             <p className="text-gray-400">Pilih mata kuliah untuk melihat seluruh tugas dan materi</p>
+          </header>
+        )}
+
+        {activeTab === 'todo' && (
+          <header className="mb-8">
+            <h2 className="text-2xl font-bold text-white">Todo List Anda</h2>
+            <p className="text-gray-400">Kelola tugas pribadi dan dapatkan notifikasi sistem sebelum deadline</p>
           </header>
         )}
 
@@ -567,21 +788,21 @@ function App() {
                 ) : (
                   <div className="space-y-2">
                     {displayAllTasks.map((task, idx) => (
-                      <div key={idx} className={`p-4 rounded-lg border flex items-center justify-between ${
+                      <div key={idx} className={`p-4 rounded-lg border flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${
                         task.isSubmitted ? 'bg-green-500/5 border-green-500/20' : 'bg-yellow-500/5 border-yellow-500/20'
                       }`}>
-                        <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-3 min-w-0">
                           {task.isSubmitted ? (
-                            <CheckCircle2 className="text-green-400" size={20} />
+                            <CheckCircle2 className="text-green-400 shrink-0" size={20} />
                           ) : (
-                            <Clock className="text-yellow-400" size={20} />
+                            <Clock className="text-yellow-400 shrink-0" size={20} />
                           )}
-                          <div>
-                            <p className="text-white font-medium">{task.name}</p>
+                          <div className="min-w-0">
+                            <p className="text-white font-medium truncate break-all" title={task.name}>{task.name}</p>
                             <p className="text-gray-400 text-sm">{task.course}</p>
                           </div>
                         </div>
-                        <div className="flex items-center gap-3">
+                        <div className="flex items-center justify-between sm:justify-end gap-3 w-full sm:w-auto mt-2 sm:mt-0 pt-2 sm:pt-0 border-t border-[var(--border-color)]/30 sm:border-0 shrink-0">
                           <span className={`text-sm font-medium ${
                             task.isSubmitted ? 'text-green-400' : 'text-yellow-400'
                           }`}>
@@ -590,14 +811,14 @@ function App() {
                           {task.isSubmitted ? (
                             <button
                               onClick={() => openEditModal(task)}
-                              className="text-xs font-medium bg-blue-500/20 hover:bg-blue-500/30 text-blue-400 px-3 py-1.5 rounded-lg transition"
+                              className="text-xs font-semibold bg-blue-500/20 hover:bg-blue-500/30 text-blue-400 px-3 py-1.5 rounded-lg transition"
                             >
                               Edit
                             </button>
                           ) : (
                             <button
                               onClick={() => openSubmitModal(task)}
-                              className="text-xs font-medium bg-primary/20 hover:bg-primary/30 text-primary px-3 py-1.5 rounded-lg transition"
+                              className="text-xs font-semibold bg-primary/20 hover:bg-primary/30 text-primary px-3 py-1.5 rounded-lg transition"
                             >
                               Kumpulkan
                             </button>
@@ -783,6 +1004,259 @@ function App() {
               </div>
             </div>
           ) : null
+        )}
+
+        {activeTab === 'todo' && (
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
+            {/* Form Tambah Todo */}
+            <div className="lg:col-span-1 bg-[#1e1e2e] p-6 rounded-2xl border border-[#313244] shadow-xl">
+              <h3 className="text-lg font-bold text-white mb-6 flex items-center gap-2">
+                <Plus className="text-primary" size={20} /> Tambah Todo Baru
+              </h3>
+              <form onSubmit={handleAddTodo} className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-400 mb-1">Judul Tugas <span className="text-red-500">*</span></label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="Contoh: Belajar UTS Matematika"
+                    value={newTodoTitle}
+                    onChange={(e) => setNewTodoTitle(e.target.value)}
+                    className="w-full bg-[#11111b] border border-[#313244] rounded-lg px-4 py-2.5 text-white focus:outline-none focus:border-primary transition"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-400 mb-1">Mata Kuliah / Kategori</label>
+                  <input
+                    type="text"
+                    placeholder="Contoh: Kalkulus 2"
+                    value={newTodoCourse}
+                    onChange={(e) => setNewTodoCourse(e.target.value)}
+                    className="w-full bg-[#11111b] border border-[#313244] rounded-lg px-4 py-2.5 text-white focus:outline-none focus:border-primary transition"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-400 mb-1">Tenggat Waktu / Deadline</label>
+                  <input
+                    type="datetime-local"
+                    value={newTodoDueDate}
+                    onChange={(e) => setNewTodoDueDate(e.target.value)}
+                    className="w-full bg-[#11111b] border border-[#313244] rounded-lg px-4 py-2.5 text-white focus:outline-none focus:border-primary transition cursor-pointer"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-400 mb-1">Keterangan / Detail</label>
+                  <textarea
+                    rows={3}
+                    placeholder="Tambahkan catatan jika diperlukan..."
+                    value={newTodoDesc}
+                    onChange={(e) => setNewTodoDesc(e.target.value)}
+                    className="w-full bg-[#11111b] border border-[#313244] rounded-lg px-4 py-2.5 text-white focus:outline-none focus:border-primary transition resize-none"
+                  />
+                </div>
+
+                <button
+                  type="submit"
+                  className="w-full bg-primary hover:bg-primary/95 text-white font-bold py-3 rounded-lg transition-all flex items-center justify-center gap-2 shadow-lg shadow-primary/20 hover:shadow-primary/30"
+                >
+                  <Plus size={18} /> Tambah Ke Daftar
+                </button>
+              </form>
+            </div>
+
+            {/* Daftar Todo */}
+            <div className="lg:col-span-2 space-y-6">
+              <div className="bg-[#1e1e2e] p-6 rounded-2xl border border-[#313244] shadow-xl">
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+                  {/* Filter Tabs */}
+                  <div className="flex bg-[#11111b] p-1 rounded-xl border border-[#313244]">
+                    <button
+                      onClick={() => setTodoFilter('all')}
+                      className={`px-4 py-2 text-sm font-semibold rounded-lg transition-all ${
+                        todoFilter === 'all' ? 'bg-primary text-white' : 'text-gray-400 hover:text-white'
+                      }`}
+                    >
+                      Semua
+                    </button>
+                    <button
+                      onClick={() => setTodoFilter('pending')}
+                      className={`px-4 py-2 text-sm font-semibold rounded-lg transition-all ${
+                        todoFilter === 'pending' ? 'bg-yellow-500/10 text-yellow-400' : 'text-gray-400 hover:text-white'
+                      }`}
+                    >
+                      Belum Selesai
+                    </button>
+                    <button
+                      onClick={() => setTodoFilter('completed')}
+                      className={`px-4 py-2 text-sm font-semibold rounded-lg transition-all ${
+                        todoFilter === 'completed' ? 'bg-green-500/10 text-green-400' : 'text-gray-400 hover:text-white'
+                      }`}
+                    >
+                      Selesai
+                    </button>
+                  </div>
+
+                  {/* Search Bar */}
+                  <input
+                    type="text"
+                    placeholder="Cari tugas todo..."
+                    value={todoSearch}
+                    onChange={(e) => setTodoSearch(e.target.value)}
+                    className="w-full sm:w-64 bg-[#11111b] border border-[#313244] rounded-xl px-4 py-2 text-sm text-white focus:outline-none focus:border-primary transition"
+                  />
+                </div>
+
+                {/* Todo Items Container */}
+                <div className="space-y-4 max-h-[600px] overflow-y-auto pr-2">
+                  {todos
+                    .filter(todo => {
+                      if (todoFilter === 'pending') return !todo.isCompleted;
+                      if (todoFilter === 'completed') return todo.isCompleted;
+                      return true;
+                    })
+                    .filter(todo => {
+                      if (!todoSearch.trim()) return true;
+                      return todo.title.toLowerCase().includes(todoSearch.toLowerCase()) || 
+                             (todo.desc && todo.desc.toLowerCase().includes(todoSearch.toLowerCase())) ||
+                             (todo.course && todo.course.toLowerCase().includes(todoSearch.toLowerCase()));
+                    })
+                    .length === 0 ? (
+                      <div className="text-center py-16 text-gray-500">
+                        <CheckSquare className="mx-auto mb-4 text-[#313244]" size={48} />
+                        <p>Tidak ada todo list yang ditemukan</p>
+                      </div>
+                    ) : (
+                      todos
+                        .filter(todo => {
+                          if (todoFilter === 'pending') return !todo.isCompleted;
+                          if (todoFilter === 'completed') return todo.isCompleted;
+                          return true;
+                        })
+                        .filter(todo => {
+                          if (!todoSearch.trim()) return true;
+                          return todo.title.toLowerCase().includes(todoSearch.toLowerCase()) || 
+                                 (todo.desc && todo.desc.toLowerCase().includes(todoSearch.toLowerCase())) ||
+                                 (todo.course && todo.course.toLowerCase().includes(todoSearch.toLowerCase()));
+                        })
+                        .map((todo) => {
+                          const hasDeadline = !!todo.dueDate;
+                          const deadlineDate = new Date(todo.dueDate);
+                          const isOverdue = hasDeadline && !todo.isCompleted && deadlineDate.getTime() < Date.now();
+                          
+                          // Sisa waktu dalam jam
+                          const hoursLeft = hasDeadline ? (deadlineDate.getTime() - Date.now()) / (3600 * 1000) : null;
+                          
+                          let borderClass = 'border-[#313244]';
+                          let leftStrip = 'bg-primary/20';
+                          
+                          if (todo.isCompleted) {
+                            borderClass = 'border-green-500/10 opacity-60';
+                            leftStrip = 'bg-green-500';
+                          } else if (isOverdue) {
+                            borderClass = 'border-red-500/20';
+                            leftStrip = 'bg-red-500';
+                          } else if (hasDeadline) {
+                            if (hoursLeft <= 6) {
+                              borderClass = 'border-red-500/30 bg-red-500/5';
+                              leftStrip = 'bg-red-500 animate-pulse';
+                            } else if (hoursLeft <= 12) {
+                              borderClass = 'border-orange-500/30 bg-orange-500/5';
+                              leftStrip = 'bg-orange-500';
+                            } else if (hoursLeft <= 24) {
+                              borderClass = 'border-yellow-500/30 bg-yellow-500/5';
+                              leftStrip = 'bg-yellow-500';
+                            }
+                          }
+
+                          return (
+                            <div
+                              key={todo.id}
+                              className={`bg-[#181825] border rounded-xl flex items-stretch overflow-hidden transition-all duration-300 hover:translate-x-1 group ${borderClass}`}
+                            >
+                              {/* Left Urgency Color Strip */}
+                              <div className={`w-1.5 shrink-0 ${leftStrip}`} />
+
+                              <div className="flex-1 p-5 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                                <div className="space-y-1.5 flex-1 min-w-0">
+                                  <div className="flex flex-wrap items-center gap-2">
+                                    {todo.course && (
+                                      <span className="bg-[#11111b] border border-[#313244] text-primary text-xs font-semibold px-2 py-0.5 rounded-md">
+                                        {todo.course}
+                                      </span>
+                                    )}
+                                    {hasDeadline && !todo.isCompleted && (
+                                      <span className={`text-xs font-semibold px-2 py-0.5 rounded-md flex items-center gap-1 ${
+                                        isOverdue 
+                                          ? 'bg-red-500/10 text-red-400' 
+                                          : hoursLeft <= 6
+                                          ? 'bg-red-500/10 text-red-400'
+                                          : hoursLeft <= 12
+                                          ? 'bg-orange-500/10 text-orange-400'
+                                          : hoursLeft <= 24
+                                          ? 'bg-yellow-500/10 text-yellow-400'
+                                          : 'bg-[#11111b] border border-[#313244] text-gray-400'
+                                      }`}>
+                                        <Clock size={12} />
+                                        {isOverdue 
+                                          ? 'Lewat Deadline' 
+                                          : hoursLeft <= 24 
+                                          ? `${Math.ceil(hoursLeft)} jam lagi`
+                                          : deadlineDate.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
+                                        }
+                                      </span>
+                                    )}
+                                  </div>
+
+                                  <h4 className={`text-base font-bold text-white break-words ${
+                                    todo.isCompleted ? 'line-through text-gray-500' : ''
+                                  }`}>
+                                    {todo.title}
+                                  </h4>
+
+                                  {todo.desc && (
+                                    <p className={`text-sm text-gray-400 break-words ${
+                                      todo.isCompleted ? 'line-through text-gray-600' : ''
+                                    }`}>
+                                      {todo.desc}
+                                    </p>
+                                  )}
+                                </div>
+
+                                <div className="flex items-center gap-3 self-end md:self-center shrink-0">
+                                  {/* Mark Status Button */}
+                                  <button
+                                    onClick={() => handleToggleTodo(todo.id)}
+                                    className={`w-9 h-9 rounded-xl flex items-center justify-center border transition-all ${
+                                      todo.isCompleted
+                                        ? 'bg-green-500/20 border-green-500/30 text-green-400 hover:bg-green-500/30'
+                                        : 'border-[#313244] text-gray-400 hover:border-green-500/50 hover:text-green-400'
+                                    }`}
+                                    title={todo.isCompleted ? "Tandai Belum Selesai" : "Tandai Selesai"}
+                                  >
+                                    {todo.isCompleted ? <Check size={18} /> : <div className="w-4.5 h-4.5 rounded-md border border-gray-500 group-hover:border-green-500" />}
+                                  </button>
+
+                                  {/* Delete Button */}
+                                  <button
+                                    onClick={() => handleDeleteTodo(todo.id)}
+                                    className="w-9 h-9 rounded-xl border border-[#313244] text-gray-400 hover:border-red-500/50 hover:text-red-400 flex items-center justify-center transition"
+                                    title="Hapus Todo"
+                                  >
+                                    <Trash2 size={18} />
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })
+                    )}
+                </div>
+              </div>
+            </div>
+          </div>
         )}
       </main>
 
