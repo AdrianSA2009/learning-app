@@ -376,6 +376,7 @@ app.whenReady().then(() => {
             name: a.name,
             course: a.courseShort,
             deadline: timeLeft(a.duedate),
+            duedate: a.duedate,
             isSubmitted: statusMap[a.id] === 'submitted'
           }))
         }

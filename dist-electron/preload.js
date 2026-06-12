@@ -1,1 +1,17 @@
-var{contextBridge:e,ipcRenderer:t}=require("electron");e.exposeInMainWorld(`electronAPI`,{login:(e,n)=>t.invoke(`moodle:login`,e,n),logout:()=>t.invoke(`moodle:logout`),getStatus:()=>t.invoke(`moodle:getStatus`),checkSession:()=>t.invoke(`moodle:checkSession`),submitText:(e,n)=>t.invoke(`moodle:submitText`,e,n),submitFile:(e,n)=>t.invoke(`moodle:submitFile`,e,n),chooseFile:()=>t.invoke(`dialog:chooseFile`),getCourses:()=>t.invoke(`moodle:getCourses`),getFilter:()=>t.invoke(`moodle:getFilter`),saveFilter:e=>t.invoke(`moodle:saveFilter`,e),getCourseDetail:e=>t.invoke(`moodle:getCourseDetail`,e),openMaterial:e=>t.invoke(`dialog:openMaterial`,e)});
+//#region electron/preload.js
+var { contextBridge, ipcRenderer } = require("electron");
+contextBridge.exposeInMainWorld("electronAPI", {
+	login: (username, password) => ipcRenderer.invoke("moodle:login", username, password),
+	logout: () => ipcRenderer.invoke("moodle:logout"),
+	getStatus: () => ipcRenderer.invoke("moodle:getStatus"),
+	checkSession: () => ipcRenderer.invoke("moodle:checkSession"),
+	submitText: (assignmentId, text) => ipcRenderer.invoke("moodle:submitText", assignmentId, text),
+	submitFile: (assignmentId, filePath) => ipcRenderer.invoke("moodle:submitFile", assignmentId, filePath),
+	chooseFile: () => ipcRenderer.invoke("dialog:chooseFile"),
+	getCourses: () => ipcRenderer.invoke("moodle:getCourses"),
+	getFilter: () => ipcRenderer.invoke("moodle:getFilter"),
+	saveFilter: (enabledCourseIds) => ipcRenderer.invoke("moodle:saveFilter", enabledCourseIds),
+	getCourseDetail: (courseId) => ipcRenderer.invoke("moodle:getCourseDetail", courseId),
+	openMaterial: (fileUrl) => ipcRenderer.invoke("dialog:openMaterial", fileUrl)
+});
+//#endregion

@@ -15,6 +15,13 @@ function App() {
   const [submitError, setSubmitError] = useState('');
   const [submitSuccess, setSubmitSuccess] = useState('');
   const [showFilter, setShowFilter] = useState(false);
+  const [editModal, setEditModal] = useState(null);
+  const [editText, setEditText] = useState('');
+  const [editFilePath, setEditFilePath] = useState('');
+  const [editing, setEditing] = useState(false);
+  const [editError, setEditError] = useState('');
+  const [editSuccess, setEditSuccess] = useState('');
+
   const [activeTab, setActiveTab] = useState('dashboard'); // 'dashboard' | 'courses' | 'course-detail'
   const [coursesList, setCoursesList] = useState([]);
   const [coursesLoading, setCoursesLoading] = useState(false);
@@ -23,6 +30,44 @@ function App() {
   const [courseDetailData, setCourseDetailData] = useState(null);
   const [courseDetailLoading, setCourseDetailLoading] = useState(false);
   const [courseDetailError, setCourseDetailError] = useState('');
+  const [dashboardCourseFilter, setDashboardCourseFilter] = useState('all');
+
+  const dashboardCourses = statusData?.allTasks
+    ? Array.from(new Set(statusData.allTasks.map(t => t.course)))
+    : [];
+
+  const displayUrgentTasks = statusData
+    ? (dashboardCourseFilter === 'all' ? statusData.urgentTasks : statusData.urgentTasks.filter(t => t.course === dashboardCourseFilter))
+    : [];
+
+  const displaySubmittedTasks = statusData
+    ? (dashboardCourseFilter === 'all' ? statusData.submittedTasks : statusData.submittedTasks.filter(t => t.course === dashboardCourseFilter))
+    : [];
+
+  const displayAllTasksRaw = statusData
+    ? (dashboardCourseFilter === 'all' ? statusData.allTasks : statusData.allTasks.filter(t => t.course === dashboardCourseFilter))
+    : [];
+
+  const now = Date.now() / 1000; // duedate dalam detik (Unix timestamp)
+
+  const displayAllTasks = [...displayAllTasksRaw]
+    .filter(t => !t.duedate || t.duedate >= now) // sembunyikan tugas yang sudah lewat deadline
+    .sort((a, b) => {
+      if (a.isSubmitted !== b.isSubmitted) {
+        return a.isSubmitted ? 1 : -1;
+      }
+      const duedateA = a.duedate || Infinity;
+      const duedateB = b.duedate || Infinity;
+      return duedateA - duedateB;
+    });
+
+  const dynamicStats = statusData ? {
+    total: displayAllTasks.length,
+    sudah: displaySubmittedTasks.length,
+    belum: displayAllTasks.filter(t => !t.isSubmitted).length,
+    urgent: displayUrgentTasks.length,
+    persen: displayAllTasks.length === 0 ? 0 : Math.round((displaySubmittedTasks.length / displayAllTasks.length) * 100)
+  } : { total: 0, sudah: 0, belum: 0, urgent: 0, persen: 0 };
 
   useEffect(() => {
     checkExistingSession();
@@ -193,6 +238,72 @@ function App() {
     setSubmitting(false);
   };
 
+  const openEditModal = (task) => {
+    setEditModal(task);
+    setEditText('');
+    setEditFilePath('');
+    setEditError('');
+    setEditSuccess('');
+    setShowUncollectConfirm(false);
+  };
+
+  const closeEditModal = () => {
+    setEditModal(null);
+    setEditText('');
+    setEditFilePath('');
+    setEditError('');
+    setEditSuccess('');
+  };
+
+  const handleChooseEditFile = async () => {
+    try {
+      const result = await window.electronAPI.chooseFile();
+      if (result?.success && result.filePath) {
+        setEditFilePath(result.filePath);
+      }
+    } catch (err) {
+      setEditError('Gagal membuka dialog file: ' + err.message);
+    }
+  };
+
+  const handleEditSubmit = async () => {
+    if (!editModal) return;
+    if (!editFilePath && !editText.trim()) {
+      setEditError('Isi teks atau pilih file terlebih dahulu.');
+      return;
+    }
+    setEditing(true);
+    setEditError('');
+    setEditSuccess('');
+    try {
+      let result;
+      if (editFilePath) {
+        result = await window.electronAPI.submitFile(editModal.id, editFilePath);
+      } else {
+        result = await window.electronAPI.submitText(editModal.id, editText.trim());
+      }
+      if (result.success) {
+        setEditSuccess('Tugas berhasil diperbarui!');
+        await fetchStatus();
+        if (selectedCourse) {
+          const r = await window.electronAPI.getCourseDetail(selectedCourse.id);
+          if (r.success) setCourseDetailData(r.data);
+        }
+        setTimeout(() => closeEditModal(), 1200);
+      } else {
+        if (result.tokenExpired) {
+          setSession(null); setStatusData(null); setEditModal(null);
+          setLoginError('Sesi sudah expired. Silakan login ulang.');
+        } else {
+          setEditError(result.error || 'Gagal memperbarui tugas.');
+        }
+      }
+    } catch (err) {
+      setEditError(err.message);
+    }
+    setEditing(false);
+  };
+
   if (!session) {
     return (
       <div className="min-h-screen bg-[#181825] flex items-center justify-center p-4">
@@ -311,9 +422,26 @@ function App() {
               <h2 className="text-2xl font-bold text-white">Dashboard Tugas</h2>
               <p className="text-gray-400">Tugas dengan deadline 10 hari ke depan</p>
             </div>
-            <button onClick={fetchStatus} className="p-2 bg-[#1e1e2e] rounded-lg hover:bg-[#313244] text-gray-400 hover:text-white transition">
-              <Bell size={20} />
-            </button>
+            <div className="flex items-center gap-4">
+              {statusData && dashboardCourses.length > 0 && (
+                <div className="flex items-center gap-2">
+                  <span className="text-gray-400 text-sm font-medium">Filter Matkul:</span>
+                  <select
+                    value={dashboardCourseFilter}
+                    onChange={(e) => setDashboardCourseFilter(e.target.value)}
+                    className="bg-[#1e1e2e] border border-[#313244] text-white rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-primary transition cursor-pointer"
+                  >
+                    <option value="all">Semua Mata Kuliah</option>
+                    {dashboardCourses.map((course, idx) => (
+                      <option key={idx} value={course}>{course}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+              <button onClick={fetchStatus} className="p-2 bg-[#1e1e2e] rounded-lg hover:bg-[#313244] text-gray-400 hover:text-white transition">
+                <Bell size={20} />
+              </button>
+            </div>
           </header>
         )}
 
@@ -351,25 +479,25 @@ function App() {
           ) : statusData ? (
             <div className="space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-                <StatCard label="Total Tugas" value={statusData.stats.total} icon={BookOpen} color="blue" />
-                <StatCard label="Sudah Dikumpul" value={statusData.stats.sudah} icon={CheckCircle2} color="green" />
-                <StatCard label="Belum Dikumpul" value={statusData.stats.belum} icon={Clock} color="yellow" />
-                <StatCard label="Deadline < 24 Jam" value={statusData.stats.urgent} icon={AlertTriangle} color="red" />
+                <StatCard label="Total Tugas" value={dynamicStats.total} icon={BookOpen} color="blue" />
+                <StatCard label="Sudah Dikumpul" value={dynamicStats.sudah} icon={CheckCircle2} color="green" />
+                <StatCard label="Belum Dikumpul" value={dynamicStats.belum} icon={Clock} color="yellow" />
+                <StatCard label="Deadline < 24 Jam" value={dynamicStats.urgent} icon={AlertTriangle} color="red" />
               </div>
 
               <div className="bg-[#1e1e2e] p-6 rounded-xl border border-[#313244]">
                 <div className="flex justify-between items-center mb-3">
                   <h3 className="text-lg font-bold text-white">Progress Pengumpulan</h3>
-                  <span className="text-2xl font-bold text-primary">{statusData.stats.persen}%</span>
+                  <span className="text-2xl font-bold text-primary">{dynamicStats.persen}%</span>
                 </div>
                 <div className="w-full h-4 bg-[#313244] rounded-full overflow-hidden">
                   <div
                     className="h-full bg-gradient-to-r from-blue-500 to-green-400 transition-all duration-500"
-                    style={{ width: `${statusData.stats.persen}%` }}
+                    style={{ width: `${dynamicStats.persen}%` }}
                   ></div>
                 </div>
                 <p className="text-gray-400 text-sm mt-2">
-                  {statusData.stats.sudah} dari {statusData.stats.total} tugas telah dikumpulkan.
+                  {dynamicStats.sudah} dari {dynamicStats.total} tugas telah dikumpulkan.
                 </p>
               </div>
 
@@ -378,11 +506,11 @@ function App() {
                   <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
                     <AlertTriangle className="text-red-400" size={20} /> Segera Dikumpulkan
                   </h3>
-                  {statusData.urgentTasks.length === 0 ? (
+                  {displayUrgentTasks.length === 0 ? (
                     <p className="text-gray-500 text-center py-8">🎉 Tidak ada tugas urgent!</p>
                   ) : (
                     <div className="space-y-3 max-h-[400px] overflow-y-auto overflow-x-hidden pr-2">
-                      {statusData.urgentTasks.map((task, idx) => (
+                      {displayUrgentTasks.map((task, idx) => (
                         <div key={idx} className={`p-4 rounded-lg border ${task.isCritical ? 'bg-red-500/10 border-red-500/20' : 'bg-yellow-500/10 border-yellow-500/20'}`}>
                           <p className="text-white font-medium break-words">{task.name}</p>
                           <div className="flex justify-between items-center mt-2 text-sm">
@@ -405,11 +533,11 @@ function App() {
                   <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
                     <CheckCircle2 className="text-green-400" size={20} /> Sudah Dikumpulkan
                   </h3>
-                  {statusData.submittedTasks.length === 0 ? (
+                  {displaySubmittedTasks.length === 0 ? (
                     <p className="text-gray-500 text-center py-8">Belum ada tugas yang dikumpul.</p>
                   ) : (
                     <div className="space-y-3 max-h-[400px] overflow-y-auto overflow-x-hidden pr-2">
-                      {statusData.submittedTasks.map((task, idx) => (
+                      {displaySubmittedTasks.map((task, idx) => (
                         <div key={idx} className="p-4 bg-green-500/5 border border-green-500/10 rounded-lg flex items-start gap-3">
                           <CheckCircle2 className="text-green-400 mt-1 flex-shrink-0" size={18} />
 
@@ -418,6 +546,12 @@ function App() {
                             <p className="text-gray-500 text-xs mt-1 break-words">{task.course} • {task.deadline}</p>
                           </div>
 
+                          <button
+                            onClick={() => openEditModal(task)}
+                            className="text-xs font-medium bg-blue-500/20 hover:bg-blue-500/30 text-blue-400 px-3 py-1.5 rounded-lg transition shrink-0"
+                          >
+                            Edit
+                          </button>
                         </div>
                       ))}
                     </div>
@@ -428,11 +562,11 @@ function App() {
               {/* Semua Tugas */}
               <div className="bg-[#1e1e2e] p-6 rounded-xl border border-[#313244]">
                 <h3 className="text-lg font-bold text-white mb-4">📋 Semua Tugas (10 Hari Ke Depan)</h3>
-                {statusData.allTasks.length === 0 ? (
+                {displayAllTasks.length === 0 ? (
                   <p className="text-gray-500 text-center py-8">Tidak ada tugas dalam 10 hari ke depan.</p>
                 ) : (
                   <div className="space-y-2">
-                    {statusData.allTasks.map((task, idx) => (
+                    {displayAllTasks.map((task, idx) => (
                       <div key={idx} className={`p-4 rounded-lg border flex items-center justify-between ${
                         task.isSubmitted ? 'bg-green-500/5 border-green-500/20' : 'bg-yellow-500/5 border-yellow-500/20'
                       }`}>
@@ -453,7 +587,14 @@ function App() {
                           }`}>
                             {task.deadline}
                           </span>
-                          {!task.isSubmitted && (
+                          {task.isSubmitted ? (
+                            <button
+                              onClick={() => openEditModal(task)}
+                              className="text-xs font-medium bg-blue-500/20 hover:bg-blue-500/30 text-blue-400 px-3 py-1.5 rounded-lg transition"
+                            >
+                              Edit
+                            </button>
+                          ) : (
                             <button
                               onClick={() => openSubmitModal(task)}
                               className="text-xs font-medium bg-primary/20 hover:bg-primary/30 text-primary px-3 py-1.5 rounded-lg transition"
@@ -535,36 +676,75 @@ function App() {
                   <p className="text-gray-500 text-center py-8">🎉 Tidak ada tugas untuk mata kuliah ini.</p>
                 ) : (
                   <div className="space-y-3 max-h-[500px] overflow-y-auto overflow-x-hidden pr-2">
-                    {courseDetailData.assignments.map((task, idx) => (
-                      <div
-                        key={idx}
-                        className={`p-4 rounded-lg border flex flex-col transition duration-200 ${
-                          task.isSubmitted
-                            ? 'bg-green-500/5 border-green-500/20 hover:bg-green-500/10 text-green-400'
-                            : 'bg-red-500/5 border-red-500/20 hover:bg-red-500/10 text-red-400'
-                        }`}
-                      >
-                        <div className="flex justify-between items-start">
-                          <p className="text-white font-medium break-words flex-1 pr-2">{task.name}</p>
-                          <span className={`text-xs font-semibold px-2.5 py-1 rounded-md shrink-0 ${
-                            task.isSubmitted ? 'bg-green-500/10 text-green-400' : 'bg-red-500/10 text-red-400'
-                          }`}>
-                            {task.isSubmitted ? 'Selesai' : 'Belum Selesai'}
-                          </span>
+                    {[...courseDetailData.assignments]
+                      .sort((a, b) => {
+                        const now = Date.now() / 1000;
+                        const aOverdue = !a.isSubmitted && a.duedate && a.duedate < now;
+                        const bOverdue = !b.isSubmitted && b.duedate && b.duedate < now;
+
+                        // Grup: 0 = belum & belum lewat, 1 = sudah lewat, 2 = sudah dikumpul
+                        const getGroup = (t, isOverdue) => {
+                          if (t.isSubmitted) return 2;
+                          if (isOverdue) return 1;
+                          return 0;
+                        };
+
+                        const groupA = getGroup(a, aOverdue);
+                        const groupB = getGroup(b, bOverdue);
+
+                        if (groupA !== groupB) return groupA - groupB;
+
+                        // Dalam grup yang sama: urutkan berdasarkan deadline terdekat
+                        const duedateA = a.duedate || Infinity;
+                        const duedateB = b.duedate || Infinity;
+                        return duedateA - duedateB;
+                      })
+                      .map((task, idx) => {
+                        const isOverdue = !task.isSubmitted && task.duedate && task.duedate < Date.now() / 1000;
+                        const cardStyle = task.isSubmitted
+                          ? 'bg-green-500/5 border-green-500/20 hover:bg-green-500/10'
+                          : isOverdue
+                          ? 'bg-gray-500/5 border-gray-500/20 hover:bg-gray-500/10'
+                          : 'bg-red-500/5 border-red-500/20 hover:bg-red-500/10';
+                        const badgeStyle = task.isSubmitted
+                          ? 'bg-green-500/10 text-green-400'
+                          : isOverdue
+                          ? 'bg-gray-500/10 text-gray-400'
+                          : 'bg-red-500/10 text-red-400';
+                        const badgeLabel = task.isSubmitted ? 'Selesai' : isOverdue ? 'Sudah Lewat' : 'Belum Selesai';
+
+                        return (
+                        <div
+                          key={idx}
+                          className={`p-4 rounded-lg border flex flex-col transition duration-200 ${cardStyle}`}
+                        >
+                          <div className="flex justify-between items-start">
+                            <p className="text-white font-medium break-words flex-1 pr-2">{task.name}</p>
+                            <span className={`text-xs font-semibold px-2.5 py-1 rounded-md shrink-0 ${badgeStyle}`}>
+                              {badgeLabel}
+                            </span>
+                          </div>
+                          <div className="flex justify-between items-center mt-4">
+                            <span className="text-gray-400 text-sm">{task.deadline}</span>
+                            {task.isSubmitted ? (
+                              <button
+                                onClick={() => openEditModal(task)}
+                                className="text-xs font-semibold bg-blue-500/20 hover:bg-blue-500/30 text-blue-400 px-3.5 py-2 rounded-lg transition"
+                              >
+                                Edit
+                              </button>
+                            ) : (
+                              <button
+                                onClick={() => openSubmitModal(task)}
+                                className="text-xs font-semibold bg-primary hover:bg-primary/90 text-white px-3.5 py-2 rounded-lg transition"
+                              >
+                                Kumpulkan
+                              </button>
+                            )}
+                          </div>
                         </div>
-                        <div className="flex justify-between items-center mt-4">
-                          <span className="text-gray-400 text-sm">{task.deadline}</span>
-                          {!task.isSubmitted && (
-                            <button
-                              onClick={() => openSubmitModal(task)}
-                              className="text-xs font-semibold bg-primary hover:bg-primary/90 text-white px-3.5 py-2 rounded-lg transition"
-                            >
-                              Kumpulkan
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                    ))}
+                        );
+                      })}
                   </div>
                 )}
               </div>
@@ -671,6 +851,79 @@ function App() {
                 >
                   {submitting ? <Loader2 className="animate-spin" size={18} /> : 'Kumpulkan'}
                 </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {editModal && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50">
+          <div className="bg-[#1e1e2e] rounded-2xl border border-[#313244] w-full max-w-md p-6 shadow-2xl">
+            <div>
+              <div className="flex justify-between items-start mb-4">
+                <div>
+                  <h3 className="text-lg font-bold text-white">Edit Pengumpulan</h3>
+                  <p className="text-gray-400 text-sm mt-1 truncate max-w-xs">{editModal.name}</p>
+                </div>
+                <button onClick={closeEditModal} className="text-gray-400 hover:text-white transition">
+                  <X size={20} />
+                </button>
+              </div>
+
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-400 mb-1">Teks Jawaban Baru (opsional)</label>
+                  <textarea
+                    rows={4}
+                    className="w-full bg-[#11111b] border border-[#313244] rounded-lg px-4 py-3 text-white focus:outline-none focus:border-primary transition resize-none"
+                    placeholder="Tulis jawaban baru di sini..."
+                    value={editText}
+                    onChange={(e) => setEditText(e.target.value)}
+                    disabled={!!editFilePath}
+                  />
+                </div>
+
+                <div className="text-center text-gray-500 text-xs">— atau —</div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-400 mb-1">Ganti File</label>
+                  <button
+                    onClick={handleChooseEditFile}
+                    disabled={!!editText.trim()}
+                    className="w-full flex items-center justify-center gap-2 bg-[#11111b] border border-[#313244] hover:border-primary text-gray-300 px-4 py-3 rounded-lg transition disabled:opacity-50"
+                  >
+                    <Upload size={18} />
+                    {editFilePath ? editFilePath.split(/[\/]/).pop() : 'Pilih File Baru'}
+                  </button>
+                </div>
+
+                {editError && (
+                  <div className="bg-red-500/10 border border-red-500/20 text-red-400 px-4 py-3 rounded-lg text-sm">
+                    {editError}
+                  </div>
+                )}
+                {editSuccess && (
+                  <div className="bg-green-500/10 border border-green-500/20 text-green-400 px-4 py-3 rounded-lg text-sm">
+                    {editSuccess}
+                  </div>
+                )}
+
+                <div className="flex gap-3 pt-2">
+                  <button
+                    onClick={closeEditModal}
+                    className="flex-1 bg-[#313244] hover:bg-[#3a3a52] text-white font-medium py-3 rounded-lg transition"
+                  >
+                    Batal
+                  </button>
+                  <button
+                    onClick={handleEditSubmit}
+                    disabled={editing}
+                    className="flex-1 bg-primary hover:bg-primary/90 text-white font-bold py-3 rounded-lg transition flex items-center justify-center gap-2 disabled:opacity-50"
+                  >
+                    {editing ? <Loader2 className="animate-spin" size={18} /> : 'Simpan'}
+                  </button>
+                </div>
               </div>
             </div>
           </div>
