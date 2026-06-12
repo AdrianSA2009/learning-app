@@ -1,4 +1,3 @@
-```markdown
 # 🎓 Lany Desktop
 
 Aplikasi desktop untuk manajemen tugas dan materi perkuliahan yang terintegrasi dengan Moodle LMS. Dirancang untuk membantu mahasiswa mengelola tugas, memantau deadline, dan mengakses materi kuliah dalam satu tempat.
