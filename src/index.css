@@ -1,0 +1,23 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  margin: 0;
+  font-family: 'Inter', sans-serif;
+  background-color: #181825; /* Warna dasar gelap */
+  color: #cdd6f4;
+  overflow: hidden; /* Mencegah scroll di body utama */
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+}
+::-webkit-scrollbar-track {
+  background: #1e1e2e; 
+}
+::-webkit-scrollbar-thumb {
+  background: #45475a; 
+  border-radius: 4px;
+}
