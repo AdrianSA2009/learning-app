@@ -1,7 +1,3 @@
-import os
-
-readme_content = """# Lany Desktop (Moodle Learning App)
-
 Lany Desktop adalah aplikasi desktop interaktif berbasis Electron dan React yang dirancang untuk mempermudah mahasiswa dalam mengakses dan mengelola *e-learning* (berbasis Moodle, terkonfigurasi awal untuk Polibatam). Aplikasi ini memungkinkan pengguna untuk memonitor tugas, mengumpulkan file tugas, mendapatkan notifikasi tenggat waktu (deadline), dan mengelola To-Do list secara terpusat tanpa harus membuka browser web.
 
 ## ✨ Fitur Utama
