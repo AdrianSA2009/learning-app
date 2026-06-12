@@ -146,14 +146,6 @@ Aplikasi ini menggunakan tema **dark mode** dengan palet warna Catppuccin Mocha:
 
 ---
 
-## 🔐 Login & Koneksi
-
-Aplikasi ini terhubung ke server Moodle. Pengguna perlu login menggunakan kredensial Moodle mereka untuk mengakses data tugas dan materi.
-
-> ⚠️ **Catatan Keamanan:** Form login dikirim ke Lany Assistant. Jangan bagikan password atau informasi sensitif lainnya.
-
----
-
 ## 📝 Lisensi
 
 Proyek ini dibuat untuk keperluan pembelajaran.
