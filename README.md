@@ -157,8 +157,3 @@ Proyek ini dibuat untuk keperluan pembelajaran.
 **AdrianSA2009** — [GitHub](https://github.com/AdrianSA2009)
 
 ---
-
-<div align="center">
-  <sub>Dibuat menggunakan React + Electron + Tailwind CSS</sub>
-</div>
-```
